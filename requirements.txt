@@ -3,3 +3,6 @@ opencv-python
 scikit-image
 matplotlib
 streamlit
+# cho phần D đọc dữ liệu CT:
+pydicom
+nibabel

@@ -1,0 +1,17 @@
+# Dữ liệu thô CT — RẤT NẶNG, KHÔNG đẩy lên GitHub
+Pancreas-CT/
+PANCREAS_*/
+TCIA_pancreas_labels*/
+*.dcm
+*.nii
+*.nii.gz
+*.zip
+
+# Rác Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.ipynb_checkpoints/
+
+# Ghi chú: các file data/*.npy mẫu (nhỏ) VẪN được đẩy lên bình thường.
