@@ -1,59 +1,54 @@
 """
-CHẠY MỘT LẦN (trưởng nhóm hoặc D) — chuyển vài lát ảnh + mask từ
-NIH Pancreas-CT (DICOM + NIfTI) ra file .npy gọn nhẹ bỏ vào data/.
+CHẠY MỘT LẦN (D) — cắt vài lát ảnh + mask từ tập NIH Pancreas-CT
+ra các cặp file .npy gọn nhẹ bỏ vào data/ cho cả nhóm dùng.
 
-Cần cài: pip install pydicom nibabel numpy
-Cách chạy: chỉnh 3 đường dẫn bên dưới cho khớp máy bạn, rồi: python prepare_data.py
+GHI CHÚ: Trên máy mình, dataset ĐÃ được chuyển sẵn sang .npy rồi.
+Mỗi ca là 1 khối 3D (512, 512, số_lát):
+    images/0001.npy  -> ảnh CT thô, đơn vị HU (int16)
+    labels/0001.npy  -> mask, chỉ gồm {0,1}
+Nên ở đây mình KHÔNG cần pydicom/nibabel nữa, chỉ cần numpy.
+
+Cách chạy: chỉnh 3 đường dẫn bên dưới cho khớp máy, rồi: python prepare_data.py
 """
-import os, glob
+import os
 import numpy as np
-import pydicom
-import nibabel as nib
 
 # ===== CHỈNH 3 ĐƯỜNG DẪN NÀY CHO KHỚP MÁY BẠN =====
-DICOM_CASE_DIR = "Pancreas-CT/PANCREAS_0001"                      # thư mục .dcm của 1 ca
-LABEL_FILE     = "TCIA_pancreas_labels-02-05-2017/label0001.nii.gz"  # mask của đúng ca đó
-OUT_DIR        = "data"
-N_SLICES       = 5   # lấy bao nhiêu lát (sẽ chọn các lát có nhiều tụy nhất)
+IMAGES_DIR = r"C:\Users\Admin\Downloads\CV\datasetCV\images"   # thư mục chứa các khối ảnh .npy
+LABELS_DIR = r"C:\Users\Admin\Downloads\CV\datasetCV\labels"   # thư mục chứa các khối mask .npy
+OUT_DIR    = "data"                                            # nơi lưu kết quả (trong repo)
+
+CASES    = ["0001", "0002", "0003"]   # lấy 3 ca cho đồ án
+N_SLICES = 5                          # mỗi ca lấy 5 lát có nhiều tụy nhất
 # ===================================================
 
 os.makedirs(OUT_DIR, exist_ok=True)
 
-# 1) Đọc DICOM, sắp xếp lát theo vị trí trục z
-files = glob.glob(os.path.join(DICOM_CASE_DIR, "*.dcm"))
-slices = [pydicom.dcmread(f) for f in files]
-slices.sort(key=lambda s: float(s.ImagePositionPatient[2]))
+stt = 0   # số thứ tự để đặt tên file: img_000, img_001, ... (tránh trùng tên giữa các ca)
 
-def to_hu(s):
-    """Đổi giá trị thô sang đơn vị Hounsfield (HU)."""
-    img = s.pixel_array.astype(np.int16)
-    intercept = float(getattr(s, "RescaleIntercept", 0))
-    slope = float(getattr(s, "RescaleSlope", 1))
-    return (img * slope + intercept).astype(np.int16)
+for case in CASES:
+    # 1) Mở khối ảnh và khối mask của 1 ca
+    volume = np.load(os.path.join(IMAGES_DIR, case + ".npy"))   # (512, 512, Z) - giá trị HU
+    mask   = np.load(os.path.join(LABELS_DIR, case + ".npy"))   # (512, 512, Z) - giá trị 0/1
 
-volume = np.stack([to_hu(s) for s in slices], axis=0)   # (Z, H, W), giá trị HU
+    mask = (mask > 0).astype(np.uint8)   # ép chắc chắn về {0,1}
 
-# 2) Đọc mask NIfTI, đưa về {0,1} và cùng trục với volume
-mask = nib.load(LABEL_FILE).get_fdata()
-mask = (mask > 0).astype(np.uint8)            # nhị phân 0/1
-mask = np.transpose(mask, (2, 0, 1))          # (H,W,Z) -> (Z,H,W)
+    # ⚠️ NẾU overlay (bước kiểm tra) thấy mask KHÔNG trùng tụy, thử bật 1 trong các dòng:
+    # mask   = mask[:, ::-1, :]                 # lật dọc
+    # mask   = mask[:, :, ::-1]                 # lật thứ tự lát
+    # volume = np.rot90(volume, k=1, axes=(0, 1)); mask = np.rot90(mask, k=1, axes=(0, 1))  # xoay 90 độ
 
-# ⚠️ NẾU overlay (bước kiểm tra) thấy mask KHÔNG trùng tụy, thử bật 1 trong các dòng:
-# mask = mask[::-1]                 # lật thứ tự lát
-# mask = np.flip(mask, axis=1)      # lật dọc
-# mask = np.rot90(mask, k=1, axes=(1, 2))  # xoay 90 độ
+    assert volume.shape == mask.shape, f"Ca {case} lệch kích thước: {volume.shape} vs {mask.shape}"
 
-assert volume.shape == mask.shape, f"Lệch kích thước: {volume.shape} vs {mask.shape}"
+    # 2) Trục thứ 3 là trục lát (z). Đếm số pixel tụy của TỪNG lát.
+    so_lat = volume.shape[2]
+    dien_tich = [int(mask[:, :, i].sum()) for i in range(so_lat)]   # diện tích tụy mỗi lát
 
-# 3) Chọn các lát có tụy (mask khác rỗng), lấy N_SLICES lát nhiều tụy nhất
-areas = mask.reshape(mask.shape[0], -1).sum(axis=1)
-idx = np.argsort(areas)[::-1][:N_SLICES]
+    # 3) Chọn N_SLICES lát có nhiều tụy nhất
+    top = np.argsort(dien_tich)[::-1][:N_SLICES]   # chỉ số các lát nhiều tụy nhất
 
-# 4) Lưu từng cặp (ảnh HU + mask) ra .npy
-for i in idx:
-    np.save(os.path.join(OUT_DIR, f"img_{int(i):03d}.npy"),  volume[i])  # ảnh HU (int16)
-    np.save(os.path.join(OUT_DIR, f"mask_{int(i):03d}.npy"), mask[i])    # mask {0,1}
-    print(f"đã lưu lát {int(i):03d} — diện tích tụy: {int(areas[i])} pixel")
-
-print("\nXong. Mở thư mục data/ kiểm tra.")
-print("NHỚ chạy bước overlay 1 cặp để chắc mask nằm đúng trên tụy (xem hướng dẫn).")
+    # 4) Lưu từng cặp (ảnh HU + mask) ra .npy
+    for i in top:
+        anh_lat = volume[:, :, i].astype(np.int16)   # 1 lát ảnh HU
+        mask_lat = mask[:, :, i].astype(np.uint8)    # 1 lát mask {0,1}
+        np.save
