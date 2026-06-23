@@ -64,32 +64,30 @@ slide thầy:
 5. Lặp lại bước 2–4 đến khi T gần như không đổi nữa.
 
 **(b) Otsu** — tự nghiên cứu thêm (slide không có). Otsu tự tìm T tối ưu bằng cách
-chọn T sao cho 2 nhóm tách nhau rõ nhất. *Lưu ý: Otsu giả định ảnh có histogram 2
-đỉnh (bimodal) — ảnh CT không phải lúc nào cũng vậy, cần biết để trả lời Q&A.*
+chọn T sao cho 2 nhóm sáng–tối tách nhau rõ nhất (tối đa phương sai giữa 2 lớp).
+*Lưu ý: Otsu giả định ảnh có histogram 2 đỉnh (bimodal) — ảnh CT không phải lúc nào
+cũng vậy, cần biết để trả lời Q&A.*
 
 **(c) Adaptive Threshold** — tự nghiên cứu thêm. Thay vì 1 ngưỡng cho cả ảnh, mỗi
 vùng nhỏ có ngưỡng riêng. Hợp khi độ sáng không đều.
 
 Hàm chọn dùng cách nào qua tham số `method` ("global" / "otsu" / "adaptive").
 
-### Bước 2 — Morphology (hình thái học), làm sạch mask
-- **Opening (mở):** xóa các đốm trắng nhỏ lẻ (nhiễu) còn sót.
-- **Closing (đóng):** lấp các lỗ thủng nhỏ bên trong vùng.
+### Bước 2 — Morphology: chỉ dùng OPENING (làm sạch mask)
+Sau khi cắt ngưỡng, mask thường còn vài đốm trắng nhỏ lẻ (nhiễu). **Opening (mở)**
+xóa các đốm nhỏ đó đi, giữ lại vùng lớn liền mạch.
 
-### Bước 3 — Connected Component (chọn đúng vùng tụy)
-Sau ngưỡng, mask có thể có nhiều mảng trắng rời rạc. Cần chọn ra mảng là tụy.
-
-⚠️ **TUYỆT ĐỐI KHÔNG chọn mảng lớn nhất.** Tụy là cơ quan NHỎ và mờ; mảng lớn nhất
-thường là gan → chọn nhầm. Hãy chọn mảng theo **vị trí** (nơi tụy thường nằm) hoặc
-mảng nằm trong vùng ROI mà A đã cắt.
+> ✅ **CHỐT cho gọn:** chỉ dùng **opening**. KHÔNG dùng closing, KHÔNG dùng
+> connected component, KHÔNG chọn "vùng lớn nhất". Càng ít bước càng dễ giải thích
+> khi vấn đáp, và đỡ rủi ro chọn nhầm cơ quan khác.
 
 ## 6. Gợi ý code
 
 - Thầy yêu cầu báo cáo có **mã giả + phần tự hiện thực**, nên hãy **TỰ VIẾT** hàm
   Global Threshold lặp theo thuật toán trên (slide có sẵn). Đây là phần ghi điểm.
-- Otsu / Adaptive / Morphology / Connected Component có thể dùng thư viện
-  (`cv2.threshold` + cờ Otsu, `cv2.adaptiveThreshold`, `cv2.morphologyEx`,
-  `cv2.connectedComponentsWithStats`) — nhưng **phải hiểu để giải thích được**.
+- Otsu / Adaptive / Opening có thể dùng thư viện (`cv2.threshold` + cờ Otsu,
+  `cv2.adaptiveThreshold`, `cv2.morphologyEx` với `cv2.MORPH_OPEN`) — nhưng **phải
+  hiểu để giải thích được**.
 
 Khung hàm sẽ phình ra đại khái như sau (viết thêm các hàm con trong cùng file):
 
@@ -104,16 +102,15 @@ def segment(img, method="otsu"):
         mask = otsu_threshold(img)
     elif method == "adaptive":
         mask = adaptive_threshold(img)
-    # 2. hậu xử lý
-    mask = morphology(mask)        # opening + closing
-    mask = chon_vung_tuy(mask)     # connected component theo vị trí
+    # 2. hậu xử lý: chỉ opening
+    mask = opening(mask)
     return mask                    # luôn trả {0,1}
 
 # TODO (B): viết các hàm con ở dưới
 def global_threshold(img): ...     # tự cài theo thuật toán lặp
 def otsu_threshold(img): ...
-def morphology(mask): ...
-def chon_vung_tuy(mask): ...
+def adaptive_threshold(img): ...
+def opening(mask): ...
 ```
 
 ## 7. Cách tự kiểm tra phần mình (không cần chờ ai)
@@ -135,27 +132,25 @@ if __name__ == "__main__":
    tách đúng ô vuông → commit.
 2. Thêm `otsu` → test → commit.
 3. Thêm `adaptive` → test → commit.
-4. Thêm `morphology` → test → commit.
-5. Thêm `chon_vung_tuy` (connected component) → test → commit.
+4. Thêm `opening` → test → commit.
 
 ## 9. Coi là XONG khi
 - Cho ảnh giả (ô vuông sáng) → `segment` tách đúng ô đó (Dice với ô vuông > 0.95).
 - Đầu ra là mask `{0,1}`, đúng kích thước.
 - Cả 3 phương pháp `global` / `otsu` / `adaptive` đều chạy.
-- Chọn đúng vùng tụy (không lấy nhầm vùng lớn nhất).
 
 ## 10. Phần báo cáo bạn phải viết
 - Chương 2: Cơ sở lý thuyết + **Related Works (mục 2.2)** — tìm ≥3 bài báo trong
   5–10 năm gần đây, **dùng cùng dataset NIH Pancreas-CT**, lập bảng so sánh Dice.
-- Mục 3.5–3.7 (phân ngưỡng, morphology, connected component).
+- Mục 3.4–3.5 (phân ngưỡng, morphology opening).
 - Mỗi mục 3.x trình bày đủ: **Đầu vào → Đầu ra → Mô tả bằng lời → Mã giả → Cách
   hiện thực → Kết quả**.
 
 ## 11. Câu hỏi Q&A bạn phải trả lời được (phần của B)
 - Phân ngưỡng là gì? Công thức g(x,y) hoạt động thế nào?
+- Thuật toán Global Threshold lặp chọn T thế nào?
 - Otsu giả định gì về histogram (bimodal)? Ảnh CT có thỏa không?
-- Vì sao KHÔNG chọn connected component lớn nhất cho tụy?
-- Opening và Closing khác nhau thế nào?
+- Opening dùng để làm gì?
 - So sánh Global / Otsu / Adaptive: cái nào tốt hơn trên ảnh nhóm, vì sao?
 
 ## 12. Quy trình làm việc với GitHub (tóm tắt)

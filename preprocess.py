@@ -1,23 +1,25 @@
 """
-PHẦN A — TIỀN XỬ LÝ (chỉ bạn A sửa file này)
+PHẦN A — TIỀN XỬ LÝ (chỉ bạn A sửa file này).
 
-Nhiệm vụ: nhận ảnh CT, trả về ảnh xám đã làm sạch & tăng tương phản.
+Nhiệm vụ: nhận ẢNH XÁM (do D đưa, đã HU windowing), làm sạch nhiễu và tăng
+tương phản để bước sau (B) tách tụy dễ hơn.
 
 QUY ƯỚC (bắt buộc):
-  - Input : ảnh (numpy array)
-  - Output: ảnh xám, kiểu uint8, giá trị 0..255
+  - Input : ảnh xám uint8 0..255 (D đã lo HU windowing, A KHÔNG cần làm HU nữa)
+  - Output: ảnh xám uint8 0..255
 
-Các bước cần làm dần: HU windowing -> khử nhiễu (Median HOẶC Gaussian) ->
-Histogram Equalization -> (tùy chọn) cắt ROI.
+Pipeline gọn (chỉ 2 bước chính):
+  khử nhiễu (Median HOẶC Gaussian, chọn MỘT) -> Histogram Equalization
+  (tùy chọn) crop giữa ảnh để bớt phần thừa.
 """
 import numpy as np
 
 
-def preprocess(img):
+def preprocess(img, denoise="median"):
     # TODO (A): thay phần dưới bằng pipeline tiền xử lý thật.
     # Hiện tại chỉ đảm bảo đúng định dạng để cả nhóm ráp thử được.
 
-    # Nếu ảnh màu -> chuyển xám (lấy trung bình kênh) cho an toàn
+    # Nếu lỡ là ảnh màu -> chuyển xám (lấy trung bình kênh) cho an toàn
     if img.ndim == 3:
         img = img.mean(axis=2)
 

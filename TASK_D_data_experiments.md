@@ -7,9 +7,12 @@ Lo dữ liệu cho cả nhóm, chạy thực nghiệm so sánh, và dựng demo 
 
 ### 1. `data_loader.py` — Dữ liệu (làm sớm nhất, cả nhóm đang chờ)
 - Tải tập **NIH Pancreas-CT** (không cần hết, lấy **vài lát ảnh + ground truth mask** là đủ).
-- Viết hàm `load_image(path)` trả về **(ảnh, ground_truth_mask)**.
-- Đọc được định dạng **DICOM / NIfTI** (dùng `pydicom` hoặc `nibabel`).
-- Bỏ ảnh mẫu vào thư mục `data/` để cả nhóm test trên cùng bộ.
+- Chạy `prepare_data.py` để chuyển DICOM + NIfTI ra các cặp `.npy` gọn nhẹ trong `data/`.
+- **HU windowing là việc của bạn (D), nằm trong `data_loader.py`** — hàm `hu_window()`
+  đã viết sẵn: cắt cửa sổ Hounsfield cho mô mềm rồi đưa ảnh HU thô về ảnh xám 0–255.
+  Nhờ vậy A nhận sẵn ảnh xám, không phải đụng HU.
+- Hàm `load_image(idx)` trả về **(ảnh xám uint8 0–255 đã HU windowing, mask {0,1})**.
+- Bỏ ảnh mẫu (.npy) vào thư mục `data/` để cả nhóm test trên cùng bộ.
 
 ### 2. `experiments.py` — Thực nghiệm
 - Chạy pipeline qua **nhiều ảnh**, tính Dice/IoU trung bình.
