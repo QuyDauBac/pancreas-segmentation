@@ -15,13 +15,13 @@ Pipeline gọn (chỉ 2 bước chính):
 import numpy as np
 
 def preprocess(img, denoise="median"):
-    img = ve_xam_neu_can(img)
+    img = chuyen_anh_xam(img)
     img = khu_nhieu(img, denoise)
     img = histogram_equalization(img)
-    img = crop_giua(img)
+
     return img.astype(np.uint8)
 
-def ve_xam_neu_can(img):
+def chuyen_anh_xam(img):
     if img.ndim == 3:
         img = img.mean(axis=2)
     return img.astype(np.uint8)
@@ -75,13 +75,6 @@ def histogram_equalization(img):
             table[k] = int(np.clip(round((cdf[k] - cdf_min) / (H * W - cdf_min) * 255), 0, 255))
     return table[img]
 
-def crop_giua(img, ty_le=0.6):
-    H, W = img.shape
-    new_H = int(H * ty_le)
-    new_W = int(W * ty_le)
-    y0 = (H - new_H) // 2
-    x0 = (W - new_W) // 2
-    return img[y0:y0+new_H, x0:x0+new_W]
 
 if __name__ == "__main__":
     import numpy as np
