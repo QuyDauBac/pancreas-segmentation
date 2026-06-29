@@ -1,0 +1,14 @@
+python -c "
+import numpy as np
+from segment import segment
+from evaluate import dice
+
+img = np.zeros((100, 100), np.uint8)
+img[35:65, 35:65] = 200          # o vuong sang o giua
+gt = np.zeros((100, 100), np.uint8)
+gt[35:65, 35:65] = 1             # ground truth: o vuong = 1
+
+for method in ['global', 'otsu', 'adaptive']:
+    mask = segment(img, method)
+    print(method, '| unique:', np.unique(mask), '| sum:', mask.sum(), '| Dice:', round(dice(mask, gt), 4))
+"
