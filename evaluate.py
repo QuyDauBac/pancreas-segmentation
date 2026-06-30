@@ -15,7 +15,12 @@ import numpy as np
 
 
 def _nhi_phan(pred, gt):
-    """Ép cả hai về 0/1 (phòng khi lỡ là 0/255), trả về (pred, gt)."""
+    """Ép cả hai về 0/1 (phòng khi lỡ là 0/255), trả về (pred, gt).
+    Chốt chặn: 2 mask PHẢI cùng kích thước. Nếu lệch (vd mask bị crop sai,
+    hay tụt thành 1 chiều) numpy có thể âm thầm broadcast ra số vô lý >1 mà
+    không báo lỗi -> assert ở đây để bắt lỗi ngay, thay vì ra kết quả sai."""
+    assert pred.shape == gt.shape, (
+        f"pred va gt phai cung kich thuoc, nhung {pred.shape} != {gt.shape}")
     pred = (pred > 0).astype(np.uint8)
     gt = (gt > 0).astype(np.uint8)
     return pred, gt
