@@ -56,9 +56,45 @@ def global_threshold(img):
 
 
 def otsu_threshold(img):
-    """Otsu: chọn T tối ưu (tối đa phương sai giữa 2 lớp)."""
-    _, mask = cv2.threshold(img, 0, 1, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-    return mask.astype(np.uint8)
+    """Otsu tự cài: chọn ngưỡng T tối đa hóa phương sai giữa 2 lớp."""
+    # 1) Histogram: đếm xem mỗi mức xám 0..255 có bao nhiêu pixel.
+    hist = np.bincount(img.ravel(), minlength=256).astype(np.float64)
+ 
+    total = img.size                       # tổng số pixel của ảnh
+    # Tổng "giá trị xám" của cả ảnh = Σ (mức_xám * số_pixel_mức_đó).
+    # Dùng để tính trung bình của lớp sáng mà không phải quét lại ảnh.
+    sum_total = np.dot(np.arange(256), hist)
+ 
+    w0 = 0.0      # số pixel của lớp TỐI (mức xám <= T), cộng dồn
+    sum0 = 0.0    # tổng giá trị xám của lớp tối, cộng dồn
+    max_var = -1.0
+    best_T = 0
+ 
+    # 2) Thử từng ngưỡng T = 0..255
+    for t in range(256):
+        w0 += hist[t]              # thêm các pixel có mức xám = t vào lớp tối
+        if w0 == 0:                # chưa có pixel nào ở lớp tối -> bỏ qua
+            continue
+        w1 = total - w0            # phần còn lại là lớp SÁNG (mức xám > T)
+        if w1 == 0:               # hết pixel cho lớp sáng -> dừng
+            break
+ 
+        sum0 += t * hist[t]
+        mu0 = sum0 / w0                    # trung bình mức xám lớp tối
+        mu1 = (sum_total - sum0) / w1      # trung bình mức xám lớp sáng
+ 
+        # 3) Phương sai giữa 2 lớp. Công thức gọn (tương đương công thức sách):
+        #    σ_b² = w0 * w1 * (mu0 - mu1)²
+        #    -> 2 lớp càng đông & trung bình càng cách xa thì giá trị càng lớn.
+        var_between = w0 * w1 * (mu0 - mu1) ** 2
+ 
+        if var_between > max_var:          # giữ lại ngưỡng tốt nhất tới hiện tại
+            max_var = var_between
+            best_T = t
+ 
+    # 4) Nhị phân hóa: pixel sáng hơn ngưỡng -> 1 (vật), còn lại -> 0 (nền).
+    #    Trả về uint8 đúng quy ước {0,1}.
+    return (img > best_T).astype(np.uint8)
 
 
 def adaptive_threshold(img):
